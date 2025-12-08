@@ -22,6 +22,11 @@ DEBUG = True # toggle
 TIMEOUT = 90000
 URL = 'https://processo.stj.jus.br/SCON/'
 
+# Termos de pesquisa
+CRITERIO_DE_PESQUISA_CONTEUDO = 'juros e mora e fazenda pública e correção e monetária'
+DATA_DE_JULGAMENTO_INICIAL_CONTEUDO = '01/10/2020'
+DATA_DE_JULGAMENTO_FINAL_CONTEUDO = '01/10/2025'
+
 
 #region run
 def run(playwright):
@@ -61,10 +66,6 @@ def run(playwright):
     page.wait_for_load_state("networkidle", timeout=TIMEOUT)
     print("50 documentos por página a partir de agora")
 
-    # BUG: quando já existem arquivos csv parciais,
-    # o script conta a partir do próximo arquivo não existente.
-    # Mas não navega para a página certa.
-
     html_content = page.content()
     soup = BeautifulSoup(html_content, 'lxml')
     numero_de_documentos = soup.find("div", { "class": "clsNumDocumento" }).get_text().strip().split(" ")[-1]
@@ -74,6 +75,10 @@ def run(playwright):
     for numero_da_pagina_atual in range(1, numero_de_paginas + 1):
         page.wait_for_load_state("networkidle", timeout=TIMEOUT)
         print(f"coletando dados da página número {numero_da_pagina_atual}")
+
+        # BUG: quando já existem arquivos csv parciais,
+        # o script conta a partir do próximo arquivo não existente.
+        # Mas não navega para a página certa.
 
         # arquivo_csv_atual = f'dados_csv/pagina{numero_da_pagina_atual}.csv'
 
@@ -175,18 +180,14 @@ def preencher_formulario(page):
     data_de_julgamento_final_xpath = '//*[@id="dtde2"]'
     botao_buscar_xpath = 'xpath=/html/body/div[1]/section[2]/div[3]/form[1]/div[2]/div[2]/div[2]/div[1]/div/button'
 
-    criterio_de_pesquisa_conteudo = 'juros e mora e fazenda pública e correção e monetária'
-    data_de_julgamento_inicial_conteudo = '01/10/2020'
-    data_de_julgamento_final_conteudo = '01/10/2025'
-
     # seleção de checkbox Orgãos Julgadores desnecessária
     # pois estes campos funcionam como filtro, e está sendo pedido para selecionar TODOS
     # Isso vai contra o propósito de aplicar um FILTRO
 
-    page.locator(criterio_de_pesquisa_xpath).fill(criterio_de_pesquisa_conteudo)
+    page.locator(criterio_de_pesquisa_xpath).fill(CRITERIO_DE_PESQUISA_CONTEUDO)
     page.locator(pesquisa_avancada_xpath).click()
-    page.locator(data_de_julgamento_inicial_xpath).fill(data_de_julgamento_inicial_conteudo)
-    page.locator(data_de_julgamento_final_xpath).fill(data_de_julgamento_final_conteudo)
+    page.locator(data_de_julgamento_inicial_xpath).fill(DATA_DE_JULGAMENTO_INICIAL_CONTEUDO)
+    page.locator(data_de_julgamento_final_xpath).fill(DATA_DE_JULGAMENTO_FINAL_CONTEUDO)
     page.locator(criterio_de_pesquisa_xpath).click()
     page.locator(botao_buscar_xpath).click()
 #endregion preencher formulario
@@ -457,17 +458,16 @@ def juntar_dados_de_cada_pagina():
     # Save the combined DataFrame to a new CSV file
     combined_df.to_csv('combined_output.csv', index=False)
 
-    # # Deleta os arquivos intermediários de dados
-    # #
-    # folder_path = "dados_csv"
-    # if os.path.exists(folder_path):
-    #     try:
-    #         shutil.rmtree(folder_path)
-    #         print(f"Folder '{folder_path}' and its contents deleted successfully.")
-    #     except OSError as e:
-    #         print(f"Error: {folder_path} : {e.strerror}")
-    # else:
-    #     print(f"Folder '{folder_path}' does not exist.")
+    # Deleta os arquivos intermediários de dados
+    folder_path = "dados_csv"
+    if os.path.exists(folder_path):
+        try:
+            shutil.rmtree(folder_path)
+            print(f"Folder '{folder_path}' and its contents deleted successfully.")
+        except OSError as e:
+            print(f"Error: {folder_path} : {e.strerror}")
+    else:
+        print(f"Folder '{folder_path}' does not exist.")
 #endregion juntar dados de cada pagina
 
 
