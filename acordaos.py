@@ -45,15 +45,13 @@ def run(playwright):
 
     preencher_formulario(page)
 
-    # sleep(1)
     page.wait_for_load_state("networkidle", timeout=TIMEOUT)
     html_content = page.content()
     soup = BeautifulSoup(html_content, 'lxml')
+
     # aba_decisoes_monocraticas = soup.find("div", { "id": "campoDTXT"})
-    aba_decisoes_monocraticas_xpath = "html body div.container-fluid.p-0 section.conteudo.container-xxl div#corpopaginajurisprudencia.px-0.px-sm-1.px-md-2.px-xl-4.container-xxl div.navegacaoDocumento div.barraOutrasBasesWrapper.d-print-none div.barraOutrasBases div#campoDTXT.tabBase a"
-    page.locator(aba_decisoes_monocraticas_xpath).click()
-    # sleep(5)
-    # exit()
+    # aba_decisoes_monocraticas_xpath = "html body div.container-fluid.p-0 section.conteudo.container-xxl div#corpopaginajurisprudencia.px-0.px-sm-1.px-md-2.px-xl-4.container-xxl div.navegacaoDocumento div.barraOutrasBasesWrapper.d-print-none div.barraOutrasBases div#campoDTXT.tabBase a"
+    # page.locator(aba_decisoes_monocraticas_xpath).click()
     page.wait_for_load_state("networkidle", timeout=TIMEOUT)
 
     numero_de_documentos = soup.find("div", { "class": "clsNumDocumento" }).get_text().strip().split(" ")[-1]
@@ -76,19 +74,17 @@ def run(playwright):
         numero_de_documentos = soup.find("div", { "class": "clsNumDocumento" }).get_text().strip()
         print(numero_de_documentos)
 
-        sleep(1)
+        page.wait_for_load_state("networkidle", timeout=TIMEOUT)
         dados = le_pagina(html_content, page)
         salvar_dados_da_pagina_atual_em_csv(numero_da_pagina_atual, dados)
-        sleep(1)
+        page.wait_for_load_state("networkidle", timeout=TIMEOUT)
 
         if numero_da_pagina_atual == numero_de_paginas:
             break
         paginar(page)
-        sleep(1)
-        pass
+        page.wait_for_load_state("networkidle", timeout=TIMEOUT)
 
-
-    sleep(1)
+    page.wait_for_load_state("networkidle", timeout=TIMEOUT)
     browser.close()
 #endregion run
 
