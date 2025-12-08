@@ -8,7 +8,7 @@ Seguir a documentação de como [Instalar](https://docs.astral.sh/uv/getting-sta
 ## Instalando as dependências do projeto
 
 ```sh
-uv pip install --requirements requirements.txt
+uv sync
 ```
 
 ## Instalando os navegadores necessários
