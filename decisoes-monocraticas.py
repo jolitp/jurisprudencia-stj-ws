@@ -1,27 +1,25 @@
-#/usr/bin/env python3
-
-# Para rodar este script seguir as instruções no arquivo README.md
-
-from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
-from time import sleep
-from rich import print, inspect
-from rich.console import Console
-from rich.table import Table
-from rich.traceback import install
-from rich.progress import track
-from rich.progress import Progress
 import pandas as pd
-import time
-import re
+# import time
+# import re
 import csv
 import os
 import shutil
 import math
+from playwright.sync_api import sync_playwright
+from bs4 import BeautifulSoup
+from time import sleep
+from rich import print#, inspect
+from rich.console import Console
+from rich.table import Table
+from rich.traceback import install
+# from rich.progress import track
+# from rich.progress import Progress
 
 TIMEOUT = 90000
 URL = 'https://processo.stj.jus.br/SCON/'
 
+
+#region run
 def run(playwright):
     """
     roda o navegador usando Playwright
@@ -29,8 +27,8 @@ def run(playwright):
     Args:
         playwright: instância do Playwright
     """
-    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-    realistic_user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+    # user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+    # realistic_user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
 
     browser = playwright.firefox.launch(
         #args=['--start-maximized'],
@@ -91,8 +89,10 @@ def run(playwright):
 
     sleep(1)
     browser.close()
+#endregion run
 
 
+#region salvar dados da pagina atual em csv
 def salvar_dados_da_pagina_atual_em_csv(numero_da_pagina, dados):
     """
     Salva os dados coletados da página atual em formato CSV para uso posterior.
@@ -126,8 +126,10 @@ def salvar_dados_da_pagina_atual_em_csv(numero_da_pagina, dados):
         for linha in dados:
             writer.writerow(linha)
     pass
+#endregion salvar dados da pagina atual em csv
 
 
+#region paginar
 def paginar(page):
     """
     Navega para a próxima página.
@@ -137,12 +139,14 @@ def paginar(page):
     """
     print("Navegando para a próxima página.")
 
-    proxima_pagina_xpath = "xpath=/html/body/div[1]/section[2]/div[2]/div[4]/div[2]/div[1]/div[3]/form/div/div[2]/a[1]"
+    # proxima_pagina_xpath = "xpath=/html/body/div[1]/section[2]/div[2]/div[4]/div[2]/div[1]/div[3]/form/div/div[2]/a[1]"
     proxima_pagina_selector = "a.iconeProximaPagina"
     page.locator(proxima_pagina_selector).first.click()
     pass
+#endregion paginar
 
 
+#region preencher formulario
 def preencher_formulario(page):
     """
     Preenche o formulário inicial da pesquisa.
@@ -172,8 +176,10 @@ def preencher_formulario(page):
     page.locator(data_de_julgamento_final_xpath).fill(data_de_julgamento_final_conteudo)
     page.locator(criterio_de_pesquisa_xpath).click()
     page.locator(botao_buscar_xpath).click()
+#endregion preencher formulario
 
 
+#region pegar documentos
 def pegar_documentos(soup):
     """
     Encontra (usando BeautifulSoup) todos os documentos contidos na página atual.
@@ -184,9 +190,10 @@ def pegar_documentos(soup):
     documento = soup.find_all("div", {"class": "documento"})
     # print(documento)
     return documento
-    pass
+#endregion pegar documentos
 
 
+#region pegar dados do documento
 def pegar_dados_do_documento(documento):
     """
     Coleta os dados relevantes de um documento específico.
@@ -240,9 +247,9 @@ def pegar_dados_do_documento(documento):
     data_da_publicacao_fonte = documento.find("div", string="Data da Publicação/Fonte")
     if data_da_publicacao_fonte:
         data_da_publicacao_fonte = data_da_publicacao_fonte.find_next_sibling()\
-                                                           .get_text()\
-                                                           .strip()\
-                                                           .replace("DJEN ", "")
+                                                            .get_text()\
+                                                            .strip()\
+                                                            .replace("DJEN ", "")
     else:
         data_da_publicacao_fonte = ""
 
@@ -356,8 +363,10 @@ def pegar_dados_do_documento(documento):
         console.print(table)
 
     return data
+#endregion pegar dados do documento
 
 
+#region le pagina
 def le_pagina(html_content, page):
     """
     Lê a página atual
@@ -378,8 +387,10 @@ def le_pagina(html_content, page):
     # print(todos_dados_desta_pagina)
 
     return todos_dados_desta_pagina
+#endregion le pagina
 
 
+#region le pagina de arquivo
 def le_pagina_de_arquivo():
     """
     Lê a página atual salva em arquivo HTML.
@@ -408,8 +419,10 @@ def le_pagina_de_arquivo():
         print("Error: The specified file was not found.")
     except Exception as e:
         print(f"An error occurred: {e}")
+#endregion le pagina de arquivo
 
 
+#region juntar dados de cada pagina
 def juntar_dados_de_cada_pagina():
     """
     Junta os dados de cada página (contidos em arquivos `.csv`).
@@ -444,8 +457,10 @@ def juntar_dados_de_cada_pagina():
         print(f"Folder '{folder_path}' does not exist.")
 
     pass
+#endregion juntar dados de cada pagina
 
 
+#region main
 if __name__ == '__main__':
     install(show_locals=False)
     print("Início da execução do Script")
@@ -458,3 +473,4 @@ if __name__ == '__main__':
     juntar_dados_de_cada_pagina()
 
     pass
+#endregion main
