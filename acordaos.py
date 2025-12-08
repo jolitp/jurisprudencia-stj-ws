@@ -1,13 +1,15 @@
 import pandas as pd
-# import time
+import time
 # import re
 import csv
 import os
 import shutil
 import math
+from icecream import ic
+# from loguru import logger as l
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
-from time import sleep
+# from time import sleep
 from rich import print#, inspect
 from rich.console import Console
 from rich.table import Table
@@ -15,6 +17,8 @@ from rich.traceback import install
 # from rich.progress import track
 # from rich.progress import Progress
 
+DEBUG = False
+DEBUG = True # toggle
 TIMEOUT = 90000
 URL = 'https://processo.stj.jus.br/SCON/'
 
@@ -45,37 +49,49 @@ def run(playwright):
 
     preencher_formulario(page)
 
-    page.wait_for_load_state("networkidle", timeout=TIMEOUT)
-    html_content = page.content()
-    soup = BeautifulSoup(html_content, 'lxml')
-
     # aba_decisoes_monocraticas = soup.find("div", { "id": "campoDTXT"})
     # aba_decisoes_monocraticas_xpath = "html body div.container-fluid.p-0 section.conteudo.container-xxl div#corpopaginajurisprudencia.px-0.px-sm-1.px-md-2.px-xl-4.container-xxl div.navegacaoDocumento div.barraOutrasBasesWrapper.d-print-none div.barraOutrasBases div#campoDTXT.tabBase a"
     # page.locator(aba_decisoes_monocraticas_xpath).click()
     page.wait_for_load_state("networkidle", timeout=TIMEOUT)
 
+    # muda o número de documentos por página de 10 para 50
+    print("Mudando o número de [cyan]Documentos/Página[/] de [cyan]10[/] para [cyan]50[/]")
+    page.locator("#qtdDocsPagina").select_option("50")
+    time.sleep(15) # HACK wait_for_load_state("networkidle") não funciona ao clicar na caixa
+    page.wait_for_load_state("networkidle", timeout=TIMEOUT)
+    print("50 documentos por página a partir de agora")
+
+    # BUG: quando já existem arquivos csv parciais,
+    # o script conta a partir do próximo arquivo não existente.
+    # Mas não navega para a página certa.
+
+    html_content = page.content()
+    soup = BeautifulSoup(html_content, 'lxml')
     numero_de_documentos = soup.find("div", { "class": "clsNumDocumento" }).get_text().strip().split(" ")[-1]
     numero_de_documentos = int(numero_de_documentos)
-    numero_de_paginas = math.ceil(numero_de_documentos / 10)
+    numero_de_paginas = math.ceil(numero_de_documentos / 50)
 
     for numero_da_pagina_atual in range(1, numero_de_paginas + 1):
+        page.wait_for_load_state("networkidle", timeout=TIMEOUT)
         print(f"coletando dados da página número {numero_da_pagina_atual}")
 
-        arquivo_csv_atual = f'dados_csv/pagina{numero_da_pagina_atual}.csv'
+        # arquivo_csv_atual = f'dados_csv/pagina{numero_da_pagina_atual}.csv'
 
-        if os.path.exists(arquivo_csv_atual):
-            print(f"Ignorando. [yellow]{arquivo_csv_atual}[/] já existe.")
-            continue
+        # if os.path.exists(arquivo_csv_atual):
+        #     print(f"Ignorando. [yellow]{arquivo_csv_atual}[/] já existe.")
+        #     continue
 
         page.wait_for_load_state("networkidle", timeout=TIMEOUT)
         html_content = page.content()
         soup = BeautifulSoup(html_content, 'lxml')
 
         numero_de_documentos = soup.find("div", { "class": "clsNumDocumento" }).get_text().strip()
-        print(numero_de_documentos)
+        ic(numero_de_documentos)
 
         page.wait_for_load_state("networkidle", timeout=TIMEOUT)
-        dados = le_pagina(html_content, page)
+        html_content = page.content()
+        soup = BeautifulSoup(html_content, 'lxml')
+        dados = le_pagina(soup)
         salvar_dados_da_pagina_atual_em_csv(numero_da_pagina_atual, dados)
         page.wait_for_load_state("networkidle", timeout=TIMEOUT)
 
@@ -102,19 +118,19 @@ def salvar_dados_da_pagina_atual_em_csv(numero_da_pagina, dados):
     with open(f'dados_csv/pagina{numero_da_pagina}.csv', 'w', encoding="utf-8", newline='') as csv_file:
         # fieldnames = ['emp_name', 'dept', 'birth_month']
         fieldnames = [
-        "processo"
-        , "tipo_de_recurso"
-        , "ministro_relator"
-        , "orgao_julgador"
-        , "data_do_julgamento"
-        , "data_da_publicacao_fonte"
-        , "tese_juridica"
-        , "url_do_acordao"
-        , "ementa"
-        , "acordao"
-        # , "notas"
-        # , "referencia_legislativa"
-        # , "jurisprudencia_citada"
+            "processo"
+            , "tipo_de_recurso"
+            , "ministro_relator"
+            , "orgao_julgador"
+            , "data_do_julgamento"
+            , "data_da_publicacao_fonte"
+            , "tese_juridica"
+            , "url_do_acordao"
+            , "ementa"
+            , "acordao"
+            # , "notas"
+            # , "referencia_legislativa"
+            # , "jurisprudencia_citada"
         ]
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
 
@@ -198,6 +214,7 @@ def pegar_dados_do_documento(documento):
     Args:
         documento: Elemento contendo apenas 1 (um) documento.
     """
+    # imprimir_tabela = DEBUG
     imprimir_tabela = False
 
     # Os metadados tipicos a serem extraidos incluem, mas nao se limitam a:
@@ -364,7 +381,7 @@ def pegar_dados_do_documento(documento):
 
 
 #region le pagina
-def le_pagina(html_content, page):
+def le_pagina(soup):
     """
     Lê a página atual
 
@@ -372,7 +389,6 @@ def le_pagina(html_content, page):
         html_content: Conteúdo em HTML retirado da página.
         page: Objeto de página do Playwright.
     """
-    soup = BeautifulSoup(html_content, 'lxml')
 
     documentos = pegar_documentos(soup)
     # print("documentos size: ", len(documentos))
@@ -441,19 +457,17 @@ def juntar_dados_de_cada_pagina():
     # Save the combined DataFrame to a new CSV file
     combined_df.to_csv('combined_output.csv', index=False)
 
-    # Deleta os arquivos intermediários de dados
-    #
-    folder_path = "dados_csv"
-    if os.path.exists(folder_path):
-        try:
-            shutil.rmtree(folder_path)
-            print(f"Folder '{folder_path}' and its contents deleted successfully.")
-        except OSError as e:
-            print(f"Error: {folder_path} : {e.strerror}")
-    else:
-        print(f"Folder '{folder_path}' does not exist.")
-
-    pass
+    # # Deleta os arquivos intermediários de dados
+    # #
+    # folder_path = "dados_csv"
+    # if os.path.exists(folder_path):
+    #     try:
+    #         shutil.rmtree(folder_path)
+    #         print(f"Folder '{folder_path}' and its contents deleted successfully.")
+    #     except OSError as e:
+    #         print(f"Error: {folder_path} : {e.strerror}")
+    # else:
+    #     print(f"Folder '{folder_path}' does not exist.")
 #endregion juntar dados de cada pagina
 
 
@@ -468,6 +482,4 @@ if __name__ == '__main__':
     # le_pagina_de_arquivo()
 
     juntar_dados_de_cada_pagina()
-
-    pass
 #endregion main
