@@ -32,7 +32,8 @@ def run(playwright):
 
     browser = playwright.firefox.launch(
         #args=['--start-maximized'],
-        headless=False,
+        headless=False, # toggle
+        # headless=True, # toggle
     )
     context = browser.new_context(
         # record_video_dir = "videos/"
