@@ -265,15 +265,17 @@ def le_pagina(soup):
 
 
 #region le pagina de arquivo
-def le_pagina_de_arquivo():
+def le_pagina_de_arquivo(file):
     """
     Lê a página atual salva em arquivo HTML.
     Desnecessária neste momento (serviu o propósito de pular as etapas de preenchimento do formulário)
     """
     try:
-        with open('resultados-1a-pagina.html', 'r', encoding='utf-8') as f:
+        # with open('resultados-1a-pagina.html', 'r', encoding='utf-8') as f:
+        with open(file, 'r', encoding='utf-8') as f:
             html_content = f.read()
             #print(html_content)
+            return html_content
 
             soup = BeautifulSoup(html_content, 'lxml') # Using lxml parser (faster)
             # Or: soup = BeautifulSoup(html_content, 'html.parser') # Using Python's built-in parser
