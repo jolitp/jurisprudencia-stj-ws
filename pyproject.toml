@@ -13,6 +13,7 @@ dependencies = [
     "pandas>=2.3.3",
     "playwright>=1.56.0",
     "rich>=14.2.0",
+    "yaspin>=3.4.0",
 ]
 
 [dependency-groups]

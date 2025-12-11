@@ -1,10 +1,67 @@
-from rich.console import Console
-from rich.table import Table
-from bs4 import BeautifulSoup
-from rich import print
+# from .transform import get_text
+from .config.parsing import search_config
 
-#region paginar
-def paginar(page):
+import playwright.sync_api._generated
+# from rich.console import Console
+# from rich.table import Table
+from bs4 import BeautifulSoup
+import bs4
+from rich import print
+from icecream import ic
+
+
+#region    get_nome_aba_atual
+def get_nome_aba_atual(page: playwright.sync_api._generated.Page):
+    html_content = page.content()
+    soup = BeautifulSoup(html_content, 'lxml')
+    aba_name = soup.find("div", { "class": "barraOutrasBases" })\
+        .find("div", { "class": "ativo" })\
+        .text
+    return aba_name
+    ...
+#endregion get_nome_aba_atual
+
+
+# #region
+# def get_aba_atual(page: playwright.sync_api._generated.Page):
+#     # html_content = page.content()
+#     # soup = BeautifulSoup(html_content, 'lxml')
+#     # aba_el = soup.find("div", { "class": "barraOutrasBases" })\
+#         # .find("div", { "class": "ativo" })
+#     # page.find("")
+#     # proxima_aba_selector = "a.iconeProximaPagina"
+#     # page.locator(proxima_pagina_selector).first.click()
+#     aba_el = page.locator(".barraOutrasBases > .ativo")
+#     return aba_el
+#     ...
+# #endregion
+
+
+#region    find 1st element on page
+def find_1st_el_on_page(page: playwright.sync_api._generated.Page,
+                        element_tag: str = "div",
+                        attributes: dict = {}):
+    # return find_all_elements_on_page(page,
+    #                                 element_tag=element_tag,
+    #                                 element_attributes=element_attributes)[0]
+    html_content = page.content()
+    soup = BeautifulSoup(html_content, 'lxml')
+    return soup.find(element_tag, attributes)
+#endregion find 1st element on page
+
+
+#region    find all elements on page
+def find_all_elements_on_page(page: playwright.sync_api._generated.Page,
+                            element_tag: str = "div",
+                            element_attributes: dict = {}):
+    html_content = page.content()
+    soup = BeautifulSoup(html_content, 'lxml')
+    return soup.find_all(element_tag, element_attributes)
+#endregion find all elements on page
+
+
+#region    paginar
+def paginar(page: playwright.sync_api._generated.Page):
     """
     Navega para a próxima página.
 
@@ -20,11 +77,11 @@ def paginar(page):
 #endregion paginar
 
 
-#region preencher formulario
-def preencher_formulario(page,
-                        CRITERIO_DE_PESQUISA_CONTEUDO,
-                        DATA_DE_JULGAMENTO_INICIAL_CONTEUDO,
-                        DATA_DE_JULGAMENTO_FINAL_CONTEUDO
+#region    preencher formulario
+def preencher_formulario(page: playwright.sync_api._generated.Page,
+                        CRITERIO_DE_PESQUISA_CONTEUDO: str,
+                        DATA_DE_JULGAMENTO_INICIAL_CONTEUDO: str,
+                        DATA_DE_JULGAMENTO_FINAL_CONTEUDO: str
                         ):
     """
     Preenche o formulário inicial da pesquisa.
@@ -32,17 +89,17 @@ def preencher_formulario(page,
     Args:
         page: Objeto de página do Playwright.
     """
-    print("Preenchendo formulário da página de pesquisa.")
+    # TODO receber dict com termos de pesquisa
+    print("Preenchendo [blue]formulário[/] da página de pesquisa com os seguints campos:")
+    print(f"  [blue]conteudo[/]: {CRITERIO_DE_PESQUISA_CONTEUDO}")
+    print(f"  [blue]data de julgamento inicial[/]: {DATA_DE_JULGAMENTO_INICIAL_CONTEUDO}")
+    print(f"  [blue]data de julgamento final[/]: {DATA_DE_JULGAMENTO_FINAL_CONTEUDO}")
 
-    criterio_de_pesquisa_xpath = '//*[@id="pesquisaLivre"]'
-    pesquisa_avancada_xpath = '//*[@id="idMostrarPesquisaAvancada"]'
-    data_de_julgamento_inicial_xpath = '//*[@id="dtde1"]'
-    data_de_julgamento_final_xpath = '//*[@id="dtde2"]'
-    botao_buscar_xpath = 'xpath=/html/body/div[1]/section[2]/div[3]/form[1]/div[2]/div[2]/div[2]/div[1]/div/button'
-
-    # seleção de checkbox Orgãos Julgadores desnecessária
-    # pois estes campos funcionam como filtro, e está sendo pedido para selecionar TODOS
-    # Isso vai contra o propósito de aplicar um FILTRO
+    criterio_de_pesquisa_xpath = search_config["criterio_de_pesquisa_xpath"]
+    pesquisa_avancada_xpath = search_config["pesquisa_avancada_xpath"]
+    data_de_julgamento_inicial_xpath = search_config["data_de_julgamento_inicial_xpath"]
+    data_de_julgamento_final_xpath = search_config["data_de_julgamento_final_xpath"]
+    botao_buscar_xpath = search_config["botao_buscar_xpath"]
 
     page.locator(criterio_de_pesquisa_xpath).fill(CRITERIO_DE_PESQUISA_CONTEUDO)
     page.locator(pesquisa_avancada_xpath).click()
@@ -53,219 +110,118 @@ def preencher_formulario(page,
 #endregion preencher formulario
 
 
-#region pegar documentos
-def pegar_documentos(soup):
+#region    pegar documentos
+def pegar_documentos(page: playwright.sync_api._generated.Page):
     """
     Encontra (usando BeautifulSoup) todos os documentos contidos na página atual.
 
     Args:
-        soup: Objeto BeautifulSoup usado anteriormente.
+        page: page do playwright
     """
-    documento = soup.find_all("div", {"class": "documento"})
-    # print(documento)
-    return documento
+    # html_content = page.content()
+    # soup = BeautifulSoup(html_content, 'lxml')
+    # documento = soup.find_all("div", {"class": "documento"})
+    el_attrs = {"class": "documento"}
+    documentos = find_all_elements_on_page(page, element_attributes=el_attrs)
+    return documentos
+    # return documento
 #endregion pegar documentos
 
 
-#region pegar dados do documento
-def pegar_dados_do_documento(documento):
+#region    pegar dados do documento (new)
+def pegar_dados_do_documento(doc: bs4.element.Tag,
+                            aba: str = "acordaos 1"):
     """
     Coleta os dados relevantes de um documento específico.
 
     Args:
-        documento: Elemento contendo apenas 1 (um) documento.
+        doc: Elemento contendo apenas 1 (um) documento.
     """
-    # imprimir_tabela = DEBUG
-    imprimir_tabela = False
+    sections = doc.find_all("div", attrs={ "class": "paragrafoBRS" })
 
-    # Os metadados tipicos a serem extraidos incluem, mas nao se limitam a:
+    sections_dict = {}
 
-    # - Numero do Processo/Registro
-    # processo = documento.find("div", string="Processo")
-    processo = documento.find("div", { "class": "col clsIdentificacaoDocumento" })
-    # print(processo.find_next_sibling().get_text())
-    if processo:
-        processo = processo.get_text().strip().split(" ")[1].strip()
-    else:
-        processo = ""
+    # get numero do documento (index)
+    n_doc_el = doc.find("div", { "class": "clsNumDocumento" })
+    numero_documento = n_doc_el.text.split()[1]
+    sections_dict["Índice"] = numero_documento
 
-    # - [?] Tipo de Recurso (e.g., RESP)
-    # pegar a primeira palavra do header (azul)
-    tipo_de_recurso = documento.find("div", { "class": "col clsIdentificacaoDocumento" })
-    if tipo_de_recurso:
-        tipo_de_recurso = tipo_de_recurso.get_text().strip().split(" ")[0]
-    else:
-        tipo_de_recurso = ""
+    # get aba
+    sections_dict["Aba"] = aba
 
-    # - Ministro Relator
-    ministro_relator = documento.find("div", string="Relator")
-    if ministro_relator:
-        ministro_relator = ministro_relator.find_next_sibling().get_text().strip()
-    else:
-        ministro_relator = ""
+    for section in sections:
+        section_name_el = section.find("div",
+                                        attrs={ "class": "docTitulo" },
+                                        recursive=False
+                                    )
+        section_name = list(section_name_el.stripped_strings)
+        if type(section_name) is list:
+            section_name = section_name[0]
+            if "\n" in section_name or "  " in section_name:
+                section_name = " ".join(section_name.split())
+        if "Relator" in section_name:
+            section_name = "Relator/Relatora"
 
-    # - Orgao Julgador
-    orgao_julgador = documento.find("div", string="Órgão Julgador")
-    if orgao_julgador:
-        orgao_julgador = orgao_julgador.find_next_sibling().get_text().strip()
-    else:
-        orgao_julgador = ""
+        section_value_el = section.find("div", attrs={ "class": "docTexto" })
+        section_value = list(section_value_el.stripped_strings)
+        if type(section_value) is list:
+            section_value = " ".join(section_value)
+            if "\n" in section_value or "  " in section_value:
+                section_value = " ".join(section_value.split())
+        elif type(section_value) is str:
+            if "\n" in section_value or "  " in section_value:
+                section_value = " ".join(section_value.split())
 
-    # - Data do Julgamento
-    data_do_julgamento = documento.find("div", string="Data do Julgamento")
-    if data_do_julgamento:
-        data_do_julgamento = data_do_julgamento.find_next_sibling().get_text().strip()
-    else:
-        data_do_julgamento = ""
+        sections_dict[str(section_name)] = section_value
+        ...
 
-    # - Data da Publicacdo/Fonte
-    data_da_publicacao_fonte = documento.find("div", string="Data da Publicação/Fonte")
-    if data_da_publicacao_fonte:
-        data_da_publicacao_fonte = data_da_publicacao_fonte.find_next_sibling()\
-                                                            .get_text()\
-                                                            .strip()\
-                                                            .replace("DJEN ", "")
-    else:
-        data_da_publicacao_fonte = ""
-
-
-    # rows = documento.find_all("div", { "class": "row" })
-    # tese_juridica = rows[3].find("div", { "class": "docTexto"})
-    # if tese_juridica:
-    #     tese_juridica = tese_juridica.get_text().strip()
-    # else:
-    #     tese_juridica = ""
-
-    # - URL especifica do acérdao (para referéncia futura)
+    # get pdf link
+    attrs = { "data-bs-original-title": "Exibir o inteiro teor do acórdão."}
+    pdf_dl_btn = doc.find("a", attrs=attrs)
     url_base = "https://processo.stj.jus.br"
-    url_do_documento = documento.find("a", { "aria-label": "Exibir o inteiro teor do acórdão." })
-
-    if url_do_documento:
-        url_do_documento = url_do_documento.get('href')\
-                                .replace("javascript:inteiro_teor('", "")\
+    href = url_base + pdf_dl_btn.get("href").replace("javascript:inteiro_teor('", "")\
                                 .replace("')", "")
-    else:
-        url_do_documento = None
+    sections_dict["PDF Link"] = href
 
-    if url_do_documento:
-        url_do_acordao = url_base + url_do_documento
-    else:
-        url_do_acordao = ""
+    # get recurso repetitivo link (tema)
+    attrs = { "class": "barraDocRepetitivo" }
+    recurso_repetitivo_el = doc.find("div", attrs=attrs)
+    sections_dict["Link Recurso Repetitivo"] = ""
+    if recurso_repetitivo_el is not None:
+        recurso_repetitivo_link_el = recurso_repetitivo_el.find("a")
+        sections_dict["Link Recurso Repetitivo"] = recurso_repetitivo_link_el.get("href")
+        ...
 
-
-
-    # OUTROS CAMPOS
-    # - Ementa
-    ementa = documento.find("div", string="Ementa")
-    if ementa:
-        ementa = ementa.find_next_sibling().get_text().strip()
-    else:
-        ementa = ""
-
-    # - Acórdão
-    acordao = documento.find("div", string="Acórdão")
-    if acordao:
-        acordao = acordao.find_next_sibling().get_text().strip()
-    else:
-        acordao = ""
+    return sections_dict
+#endregion pegar dados do documento (new)
 
 
-
-    # próximos dados sendo difíceis de apontar para o elemnto correto. Ignorados.
-    #
-    # # - Notas
-    # # notas = documento.find("div", string="Notas").find_next_sibling().get_text().strip()
-    # # notas = rows[6].find("div", { "class": "docTexto"})
-    # notas = documento.find("div", string=re.compile("Notas"))
-    # print(notas)
-    # # if notas:
-    # #     notas = notas.find_next_sibling().get_text().strip()
-    # # else:
-    # #     notas = "asdf"
-    #
-    # # - Referência Legislativa
-    # # referencia_legislativa = rows[7].find("div", { "class": "docTexto"})
-    # referencia_legislativa  = documento.find("div", string="Legislativa")
-    # if referencia_legislativa:
-    #     referencia_legislativa = referencia_legislativa.find_next_sibling().get_text().strip()
-    # else:
-    #     referencia_legislativa = ""
-    #
-    # # - Jurisprudência Citada
-    # # jurisprudencia_citada = rows[8].find("div", { "class": "docTexto"})
-    # jurisprudencia_citada = documento.find("div", string="Jurisprudência")
-    # if jurisprudencia_citada:
-    #     jurisprudencia_citada = jurisprudencia_citada.find_next_sibling().get_text().strip()
-    # else:
-    #     jurisprudencia_citada = ""
-
-    data = {
-        "processo": processo,
-        "tipo_de_recurso": tipo_de_recurso,
-        "ministro_relator": ministro_relator,
-        "orgao_julgador": orgao_julgador,
-        "data_do_julgamento": data_do_julgamento,
-        "data_da_publicacao_fonte": data_da_publicacao_fonte,
-        # "tese_juridica": tese_juridica,
-        "url_do_acordao": url_do_acordao,
-        "ementa": ementa,
-        "acordao": acordao,
-        # "notas": notas,
-        # "referencia_legislativa": referencia_legislativa,
-        # "jurisprudencia_citada": jurisprudencia_citada,
-    }
-
-    if imprimir_tabela:
-        table = Table(title="Dados", row_styles=["blue", "bright_blue"])
-        table.add_column("Nome", justify="left")
-        table.add_column("Valor", justify="right")
-
-        table.add_row("processo", processo)
-        table.add_row("tipo_de_recurso", tipo_de_recurso)
-        table.add_row("ministro_relator", ministro_relator)
-        table.add_row("orgao_julgador", orgao_julgador)
-        table.add_row("data_do_julgamento", data_do_julgamento)
-        table.add_row("data_da_publicacao_fonte", data_da_publicacao_fonte)
-        # table.add_row("tese_juridica", tese_juridica[0:80] + " (...) ")
-        table.add_row("url_do_acordao", url_do_acordao)
-        table.add_row("ementa", ementa[0:80] + " (...) ")
-        table.add_row("acordao", acordao[0:80] + " (...) ")
-        # table.add_row("notas", notas[0:99])
-        # table.add_row("referencia_legislativa", referencia_legislativa[0:99])
-        # table.add_row("jurisprudencia_citada", jurisprudencia_citada[0:99])
-
-        console = Console()
-        console.print(table)
-
-    return data
-#endregion pegar dados do documento
-
-
-#region le pagina
-def le_pagina(soup):
+#region    le pagina
+def le_pagina(page: playwright.sync_api._generated.Page,
+            aba: str = "acordaos_1"
+            ):
     """
-    Lê a página atual
+    Lê a página atual, retornando os dados.
 
     Args:
-        html_content: Conteúdo em HTML retirado da página.
         page: Objeto de página do Playwright.
     """
 
-    documentos = pegar_documentos(soup)
-    # print("documentos size: ", len(documentos))
+    documentos = pegar_documentos(page)
 
+    header = []
     todos_dados_desta_pagina = []
     for documento in documentos:
-        dados = pegar_dados_do_documento(documento)
+        dados = pegar_dados_do_documento(documento, aba)
         todos_dados_desta_pagina.append(dados)
-    # print(todos_dados_desta_pagina)
+        header = dados.keys()
 
-    return todos_dados_desta_pagina
+    return (todos_dados_desta_pagina, header)
 #endregion le pagina
 
 
-#region le pagina de arquivo
-def le_pagina_de_arquivo(file):
+#region    le pagina de arquivo
+def le_pagina_de_arquivo(file: str):
     """
     Lê a página atual salva em arquivo HTML.
     Desnecessária neste momento (serviu o propósito de pular as etapas de preenchimento do formulário)
@@ -275,12 +231,10 @@ def le_pagina_de_arquivo(file):
         with open(file, 'r', encoding='utf-8') as f:
             html_content = f.read()
             #print(html_content)
-            return html_content
+            # TODO separar essa função
+            return html_content # para teste
 
-            soup = BeautifulSoup(html_content, 'lxml') # Using lxml parser (faster)
-            # Or: soup = BeautifulSoup(html_content, 'html.parser') # Using Python's built-in parser
-
-            documentos = pegar_documentos(soup, None)
+            documentos = pegar_documentos(html_content, None)
             # inspect(documentos)
             # print("documentos size: ", len(documentos))
             todos_dados_desta_pagina = []
