@@ -1,7 +1,24 @@
 import os
 import pandas as pd
 from rich import print
-# from icecream import ic
+from icecream import ic
+
+
+def append_to_timestamp_file(n_pagina: int,
+                            start: float,
+                            end: float,
+                            delta: float,
+                            aba: str = "aba_undefined",
+                            script_start_datetime=None
+                            ):
+    ic()
+
+    dir_str = "__execucoes__/no_date"
+    if script_start_datetime:
+        dir_str = f"__execucoes__/{script_start_datetime.strftime("%Y_%m_%d_-_%H_%M_%S")}"
+    os.makedirs(f'{dir_str}/{aba}', exist_ok=True)
+    with open(f"{dir_str}/timestamps.txt", "a") as f:
+        f.write(f"Página {n_pagina}: {start} -> {end} = {delta}\n")
 
 
 def salvar_dados_da_pagina_atual_em_csv(numero_da_pagina: int,
@@ -20,7 +37,8 @@ def salvar_dados_da_pagina_atual_em_csv(numero_da_pagina: int,
         script_start_datetime: objeto datetime com a adata e hora de início do script
 
     """
-    # TODO: acomodar arquivos de abas diferentes em pastas diverentes
+    ic()
+
     dir_str = "__execucoes__/no_date"
     if script_start_datetime:
         dir_str = f"__execucoes__/{script_start_datetime.strftime("%Y_%m_%d_-_%H_%M_%S")}"
@@ -41,10 +59,11 @@ def juntar_dados_de_cada_pagina(aba: str = "acordaos_1",
     """
     Junta os dados de cada página (contidos em arquivos `.csv`).
     """
+    ic()
+
     print("juntando os dados de todas as páginas.")
 
     # TODO: acomodar arquivos de abas diferentes em pastas diverentes ao juntar dados
-    # Assuming your CSV files are in a folder named 'csv_files'
     dir_str = "__execucoes__/no_date"
     if script_start_datetime:
         dir_str = f"__execucoes__/{script_start_datetime.strftime("%Y_%m_%d_-_%H_%M_%S")}"

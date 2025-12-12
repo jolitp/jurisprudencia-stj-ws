@@ -5,15 +5,19 @@ from .transform import last_word_from_text
 import playwright.sync_api._generated
 # from rich.console import Console
 # from rich.table import Table
+import time
 from bs4 import BeautifulSoup
 import bs4
 import math
 from rich import print
-# from icecream import ic
+from icecream import ic
+from urllib.parse import urlencode, urlparse, parse_qs
 
 
 #region    get_nome_aba_atual
 def get_nome_aba_atual(page: playwright.sync_api._generated.Page):
+    ic()
+
     html_content = page.content()
     soup = BeautifulSoup(html_content, 'lxml')
     aba_name: str = soup.find("div", { "class": "barraOutrasBases" })\
@@ -26,13 +30,8 @@ def get_nome_aba_atual(page: playwright.sync_api._generated.Page):
 
 #region
 def get_aba_atual(page: playwright.sync_api._generated.Page):
-    # html_content = page.content()
-    # soup = BeautifulSoup(html_content, 'lxml')
-    # aba_el = soup.find("div", { "class": "barraOutrasBases" })\
-        # .find("div", { "class": "ativo" })
-    # page.find("")
-    # proxima_aba_selector = "a.iconeProximaPagina"
-    # page.locator(proxima_pagina_selector).first.click()
+    ic()
+
     aba_el = page.locator(".barraOutrasBases > .ativo")
     return aba_el
     ...
@@ -42,6 +41,8 @@ def get_aba_atual(page: playwright.sync_api._generated.Page):
 def get_number_of_docs_in_last_page(
         page: playwright.sync_api._generated.Page,
     ):
+    ic()
+
     n_de_paginas = get_number_of_pages_to_traverse(page)
     el_attrs = { "class": "clsNumDocumento" }
     n_doc_el = find_1st_el_on_page(page, attributes=el_attrs)
@@ -56,20 +57,48 @@ def get_number_of_docs_in_last_page(
     return n_docs_ultima_pagina
 
 
-def get_number_of_pages_to_traverse(
+def get_total_number_of_documents(
         page: playwright.sync_api._generated.Page,
     ):
+    ic()
+
     page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
 
     el_attrs = { "class": "clsNumDocumento" }
+    page.locator(".clsNumDocumento").first.wait_for(state="visible")
     n_doc_el = find_1st_el_on_page(page, attributes=el_attrs)
+    ic(n_doc_el)
+    # n_doc_el = page.locator(".clsNumDocumento").first
+    # n_doc_el.wait_for(timeout=C.TIMEOUT)
     n_docs = int(last_word_from_text(n_doc_el))
+    ic(n_docs)
+
+    return n_docs
+
+
+def get_number_of_pages_to_traverse(
+        page: playwright.sync_api._generated.Page,
+    ):
+    ic()
+
+    page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
+
+    el_attrs = { "class": "clsNumDocumento" }
+    page.locator(".clsNumDocumento").first.wait_for(state="visible")
+    n_doc_el = find_1st_el_on_page(page, attributes=el_attrs)
+    ic(n_doc_el)
+    # n_doc_el = page.locator(".clsNumDocumento").first
+    # n_doc_el.wait_for(timeout=C.TIMEOUT)
+    n_docs = int(last_word_from_text(n_doc_el))
+    ic(n_docs)
     n_de_paginas = math.ceil(n_docs / C.DOCS_PER_PAGE)
 
     return n_de_paginas
 
 
 def get_info_on_tabs(page: playwright.sync_api._generated.Page):
+    ic()
+
     aba_ativa = None
     proxima_aba = None
     nome_aba_ativa = None
@@ -152,6 +181,8 @@ def get_info_on_tabs(page: playwright.sync_api._generated.Page):
 def find_1st_el_on_page(page: playwright.sync_api._generated.Page,
                         element_tag: str = "div",
                         attributes: dict = {}):
+    ic()
+
     html_content = page.content()
     soup = BeautifulSoup(html_content, 'lxml')
     return soup.find(element_tag, attributes)
@@ -162,46 +193,29 @@ def find_1st_el_on_page(page: playwright.sync_api._generated.Page,
 def find_all_elements_on_page(page: playwright.sync_api._generated.Page,
                             element_tag: str = "div",
                             element_attributes: dict = {}):
+    ic()
+
     html_content = page.content()
     soup = BeautifulSoup(html_content, 'lxml')
     return soup.find_all(element_tag, element_attributes)
 #endregion find all elements on page
 
 
-#region    paginar
-def paginar(page: playwright.sync_api._generated.Page):
-    """
-    Navega para a próxima página.
-
-    Args:
-        page: Objeto de página do Playwright.
-    """
-    print("Navegando para a próxima página.")
-
-    # proxima_pagina_xpath = "xpath=/html/body/div[1]/section[2]/div[2]/div[4]/div[2]/div[1]/div[3]/form/div/div[2]/a[1]"
-    proxima_pagina_selector = "a.iconeProximaPagina"
-    page.locator(proxima_pagina_selector).first.click()
-    pass
-#endregion paginar
-
-
 #region    preencher formulario
-def preencher_formulario(page: playwright.sync_api._generated.Page,
-                        # CRITERIO_DE_PESQUISA_CONTEUDO: str,
-                        # DATA_DE_JULGAMENTO_INICIAL_CONTEUDO: str,
-                        # DATA_DE_JULGAMENTO_FINAL_CONTEUDO: str
-                        ):
+def preencher_formulario(page: playwright.sync_api._generated.Page):
     """
     Preenche o formulário inicial da pesquisa.
 
     Args:
         page: Objeto de página do Playwright.
     """
+    ic()
+
     # TODO receber dict com termos de pesquisa
     print("Preenchendo [blue]formulário[/] da página de pesquisa com os seguints campos:")
-    print(f"  [blue]conteudo[/]: {C.CRITERIO_DE_PESQUISA_CONTEUDO}")
-    print(f"  [blue]data de julgamento inicial[/]: {C.DATA_DE_JULGAMENTO_INICIAL_CONTEUDO}")
-    print(f"  [blue]data de julgamento final[/]: {C.DATA_DE_JULGAMENTO_FINAL_CONTEUDO}")
+    print(f"  [blue]conteudo[/]: {C.PESQUISA}")
+    print(f"  [blue]data de julgamento inicial[/]: {C.DATA_DE_JULGAMENTO_INICIAL}")
+    print(f"  [blue]data de julgamento final[/]: {C.DATA_DE_JULGAMENTO_FINAL}")
 
     criterio_de_pesquisa_xpath = search_config["criterio_de_pesquisa_xpath"]
     pesquisa_avancada_xpath = search_config["pesquisa_avancada_xpath"]
@@ -209,10 +223,10 @@ def preencher_formulario(page: playwright.sync_api._generated.Page,
     data_de_julgamento_final_xpath = search_config["data_de_julgamento_final_xpath"]
     botao_buscar_xpath = search_config["botao_buscar_xpath"]
 
-    page.locator(criterio_de_pesquisa_xpath).fill(C.CRITERIO_DE_PESQUISA_CONTEUDO)
+    page.locator(criterio_de_pesquisa_xpath).fill(C.PESQUISA)
     page.locator(pesquisa_avancada_xpath).click()
-    page.locator(data_de_julgamento_inicial_xpath).fill(C.DATA_DE_JULGAMENTO_INICIAL_CONTEUDO)
-    page.locator(data_de_julgamento_final_xpath).fill(C.DATA_DE_JULGAMENTO_FINAL_CONTEUDO)
+    page.locator(data_de_julgamento_inicial_xpath).fill(C.DATA_DE_JULGAMENTO_INICIAL)
+    page.locator(data_de_julgamento_final_xpath).fill(C.DATA_DE_JULGAMENTO_FINAL)
     page.locator(criterio_de_pesquisa_xpath).click()
     page.locator(botao_buscar_xpath).click()
 #endregion preencher formulario
@@ -226,9 +240,10 @@ def pegar_documentos(page: playwright.sync_api._generated.Page):
     Args:
         page: page do playwright
     """
-    # html_content = page.content()
-    # soup = BeautifulSoup(html_content, 'lxml')
-    # documento = soup.find_all("div", {"class": "documento"})
+    ic()
+
+    page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
+
     el_attrs = {"class": "documento"}
     documentos = find_all_elements_on_page(page, element_attributes=el_attrs)
     return documentos
@@ -238,13 +253,15 @@ def pegar_documentos(page: playwright.sync_api._generated.Page):
 
 #region    pegar dados do documento (new)
 def pegar_dados_do_documento(doc: bs4.element.Tag,
-                            aba: str = "acordaos 1"):
+                            aba: str = "undefined"):
     """
     Coleta os dados relevantes de um documento específico.
 
     Args:
         doc: Elemento contendo apenas 1 (um) documento.
     """
+    ic()
+
     sections = doc.find_all("div", attrs={ "class": "paragrafoBRS" })
 
     sections_dict = {}
@@ -284,13 +301,35 @@ def pegar_dados_do_documento(doc: bs4.element.Tag,
         ...
 
     # get pdf link
-    # NOTE em decisoes democraticas abre uma nova janela e o link é este:
-    # processo.stj.jus.br/processo/pesquisa/?num_registro=202502557087
-    attrs = { "data-bs-original-title": "Exibir o inteiro teor do acórdão."}
-    pdf_dl_btn = doc.find("a", attrs=attrs)
-    url_base = "https://processo.stj.jus.br"
-    href = url_base + pdf_dl_btn.get("href").replace("javascript:inteiro_teor('", "")\
-                                .replace("')", "")
+    href = ""
+    # ic(aba)
+    # ic("Acórdãos" in aba)
+    # ic("Decisões Monocráticas" in aba)
+    if "Acórdãos" in aba:
+        attrs = { "data-bs-original-title": "Exibir o inteiro teor do acórdão."}
+        pdf_dl_btn = doc.find("a", attrs=attrs)
+        url_base = "https://processo.stj.jus.br"
+        href = url_base + pdf_dl_btn.get("href")\
+                                    .replace("javascript:inteiro_teor('", "")\
+                                    .replace("')", "")
+        ...
+    elif "Decisões Monocráticas" in aba:
+        # NOTE em decisoes democraticas abre uma nova janela e o link é este:
+        # processo.stj.jus.br/processo/pesquisa/?num_registro=202502557087
+# <a href="javascript:processo('https://processo.stj.jus.br/processo/pesquisa/?num_registro=202502557087');"
+#    data-bs-toggle="tooltip"
+#    data-bs-placement="bottom"
+#    title=""
+#    data-bs-original-title="Consulta Processual"
+#    aria-label="Consulta Processual">
+#       <img src="/recursos/imagens/iconeProcesso.png">
+# </a>
+        attrs = { "data-bs-original-title": "Consulta Processual"}
+        pdf_dl_btn = doc.find("a", attrs=attrs)
+        url_base = "https://processo.stj.jus.br"
+        href = url_base + pdf_dl_btn.get("href")\
+            .replace("javascript:processo('", "")\
+            .replace("')", "")
     sections_dict["PDF Link"] = href
 
     # get recurso repetitivo link (tema)
@@ -316,6 +355,7 @@ def le_pagina(page: playwright.sync_api._generated.Page,
     Args:
         page: Objeto de página do Playwright.
     """
+    ic()
 
     documentos = pegar_documentos(page)
 
@@ -336,12 +376,14 @@ def le_pagina_de_arquivo(file: str):
     Lê a página atual salva em arquivo HTML.
     Desnecessária neste momento (serviu o propósito de pular as etapas de preenchimento do formulário)
     """
+    ic()
+
     try:
         # with open('resultados-1a-pagina.html', 'r', encoding='utf-8') as f:
         with open(file, 'r', encoding='utf-8') as f:
             html_content = f.read()
             #print(html_content)
-            # TODO separar essa função
+            # TODO dividir esta função em duas
             return html_content # para teste
 
             documentos = pegar_documentos(html_content, None)

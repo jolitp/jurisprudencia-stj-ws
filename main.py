@@ -1,10 +1,10 @@
 import functions.config.constants as C
 
 from functions.navigate import  wait_for_page_to_change_document_number\
-                            ,   muda_para_proxima_aba
+                            ,   muda_para_proxima_aba\
+                            ,   paginar\
 
 from functions.extract import get_info_on_tabs\
-                            , paginar\
                             , preencher_formulario\
                             , le_pagina\
                             , find_1st_el_on_page\
@@ -13,6 +13,7 @@ from functions.extract import get_info_on_tabs\
 
 from functions.load import salvar_dados_da_pagina_atual_em_csv\
                         ,  juntar_dados_de_cada_pagina\
+                        ,  append_to_timestamp_file
 
 from functions.transform import get_text
 
@@ -20,18 +21,26 @@ import time
 import datetime
 import typer
 from icecream import ic
+
 from rich import print
 from playwright.sync_api import sync_playwright
 import playwright
 
 # from rich.traceback import install
-import pretty_errors
+# import pretty_errors
 from rich.console import Console
 
+from icecream import install as icecream_install
+icecream_install()
+
 console = Console()
-# install(show_locals=True) # toggle
-# install(show_locals=False) # toggle
 # ic.configureOutput(includeContext=True)
+
+# app = typer.Typer(pretty_exceptions_enable=False)
+app = typer.Typer(pretty_exceptions_show_locals=False)
+
+
+# import pretty_errors
 
 DT_NOW = datetime.datetime.now()
 
@@ -39,6 +48,8 @@ DT_NOW = datetime.datetime.now()
 def processa_aba_atual(
     page: playwright.sync_api._generated.Page,
     ):
+    ic()
+
     page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
     wait_for_page_to_change_document_number(page, console)
     page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
@@ -46,17 +57,22 @@ def processa_aba_atual(
     nome_aba_atual = get_nome_aba_atual(page)
     n_de_paginas = get_number_of_pages_to_traverse(page)
 
+    start = DT_NOW.timestamp
+    end = DT_NOW.timestamp
+    delta = 0
     for n_pag_atual in range(1, n_de_paginas + 1):
+        start = datetime.datetime.now().timestamp()
         page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
         print(f"coletando dados da página { n_pag_atual } de { n_de_paginas }")
 
+        aba = get_info_on_tabs(page)["Current"]["Name"]
         n_docs\
             = find_1st_el_on_page(page,
                                 attributes={ "class": "clsNumDocumento" })
         n_docs = get_text(n_docs)
 
         page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
-        dados, header = le_pagina(page)
+        dados, header = le_pagina(page, aba=aba)
         salvar_dados_da_pagina_atual_em_csv(
             n_pag_atual,
             dados,
@@ -65,11 +81,19 @@ def processa_aba_atual(
             script_start_datetime=DT_NOW
         )
 
-        # ic(n_pag_atual == n_de_paginas)
         if n_pag_atual == n_de_paginas:
             break
-        paginar(page)
+        paginar(page, n_pag_atual)
+
         page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
+
+        end = datetime.datetime.now().timestamp()
+        delta = int(end - start)
+
+        append_to_timestamp_file(n_pag_atual,
+            start, end, delta, aba,
+            script_start_datetime=DT_NOW
+        )
 
     juntar_dados_de_cada_pagina(
         aba=nome_aba_atual,
@@ -86,6 +110,8 @@ def run(pw: playwright.sync_api._generated.Playwright,
     Args:
         playwright: instância do Playwright
     """
+    ic()
+
     browser = pw.firefox.launch(
         headless=False, # toggle
         # headless=True, # toggle
@@ -128,6 +154,8 @@ def run(pw: playwright.sync_api._generated.Playwright,
 
 
 def check_arguments(tab1: str, tab2: str):
+    ic()
+
     tab = " ".join([tab1, tab2])
     # ic(tab)
     tab_in_accepted_values = any(tab in x for x in C.ACCEPTED_ARGUMENTS)
@@ -136,10 +164,17 @@ def check_arguments(tab1: str, tab2: str):
 
 
 #region main
+@app.command()
 def main(
     tab1: str,
-    tab2: str
+    tab2: str,
+    debug: bool = False
 ):
+    # print("debug: ", debug)
+    ic.disable()
+    if debug:
+        ic.enable()
+    ic()
     print("Início da execução do Script")
 
     tab_in_accepted_values, tab = check_arguments(tab1, tab2)
@@ -155,5 +190,6 @@ def main(
 
 
 if __name__ == '__main__':
-    typer.run(main)
+    app()
+    # typer.run(main)
 #endregion main
