@@ -1,58 +1,53 @@
-from functions.load import    salvar_dados_da_pagina_atual_em_csv\
-                            , juntar_dados_de_cada_pagina\
-                            , juntar_dados_de_cada_aba
+import functions.config.constants as C
 
-from functions.extract import paginar\
+from functions.navigate import  wait_for_page_to_change_document_number\
+                            ,   muda_para_proxima_aba
+
+from functions.extract import get_info_on_tabs\
+                            , paginar\
                             , preencher_formulario\
                             , le_pagina\
-                            , pegar_documentos\
                             , find_1st_el_on_page\
                             , get_nome_aba_atual\
+                            , get_number_of_pages_to_traverse
 
-from functions.transform import last_word_from_text\
-                            ,   get_text
+from functions.load import salvar_dados_da_pagina_atual_em_csv\
+                        ,  juntar_dados_de_cada_pagina\
 
-import datetime
+from functions.transform import get_text
+
 import time
-import math
-import re
+import datetime
+import typer
 from icecream import ic
 from rich import print
 from playwright.sync_api import sync_playwright
 import playwright
-from bs4 import BeautifulSoup
 
-from rich.traceback import install
+# from rich.traceback import install
+import pretty_errors
 from rich.console import Console
 
 console = Console()
 # install(show_locals=True) # toggle
-install(show_locals=False) # toggle
-
+# install(show_locals=False) # toggle
+# ic.configureOutput(includeContext=True)
 
 DT_NOW = datetime.datetime.now()
-DEBUG: bool = False
-# DEBUG: bool = True # toggle
-TIMEOUT: int = 90000
-URL: str = 'https://processo.stj.jus.br/SCON/'
-DOCS_PER_PAGE = 50
-
-# Termos de pesquisa
-CRITERIO_DE_PESQUISA_CONTEUDO: str = 'juros e mora e fazenda pública e correção e monetária'
-DATA_DE_JULGAMENTO_INICIAL_CONTEUDO: str = '01/10/2020'
-DATA_DE_JULGAMENTO_FINAL_CONTEUDO: str = '01/10/2025'
 
 
-def processa_aba_atual(page: playwright.sync_api._generated.Page):
-    page.wait_for_load_state("networkidle", timeout=TIMEOUT)
-    wait_for_page_to_change_document_number(page)
-    page.wait_for_load_state("networkidle", timeout=TIMEOUT)
+def processa_aba_atual(
+    page: playwright.sync_api._generated.Page,
+    ):
+    page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
+    wait_for_page_to_change_document_number(page, console)
+    page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
 
     nome_aba_atual = get_nome_aba_atual(page)
     n_de_paginas = get_number_of_pages_to_traverse(page)
 
     for n_pag_atual in range(1, n_de_paginas + 1):
-        page.wait_for_load_state("networkidle", timeout=TIMEOUT)
+        page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
         print(f"coletando dados da página { n_pag_atual } de { n_de_paginas }")
 
         n_docs\
@@ -60,7 +55,7 @@ def processa_aba_atual(page: playwright.sync_api._generated.Page):
                                 attributes={ "class": "clsNumDocumento" })
         n_docs = get_text(n_docs)
 
-        page.wait_for_load_state("networkidle", timeout=TIMEOUT)
+        page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
         dados, header = le_pagina(page)
         salvar_dados_da_pagina_atual_em_csv(
             n_pag_atual,
@@ -74,182 +69,17 @@ def processa_aba_atual(page: playwright.sync_api._generated.Page):
         if n_pag_atual == n_de_paginas:
             break
         paginar(page)
-        page.wait_for_load_state("networkidle", timeout=TIMEOUT)
+        page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
 
     juntar_dados_de_cada_pagina(
         aba=nome_aba_atual,
         script_start_datetime=DT_NOW
     )
-    ...
 
 
-def wait_for_page_to_change_tab(page: playwright.sync_api._generated.Page,
-                                aba: str):
-    page.wait_for_load_state("networkidle", timeout=TIMEOUT)
-
-    page.locator("#qtdDocsPagina").select_option("50")
-
-    with console.status(f"Mudando para a aba: {aba}"):
-        while True:
-            # TODO check against the remaining number of documents in the last page
-            time.sleep(1)
-
-            first_doc = pegar_documentos(page)[0]
-            # soup = BeautifulSoup(first_doc, 'lxml')
-
-            attrs = { "class": "clsNumDocumento" }
-            text_1st_doc = first_doc.find("div", attrs).text
-
-            if "Documento 1 de " in text_1st_doc:
-                break
-            ...
-        ...
-    ...
-
-
-def wait_for_page_to_change_document_number(page: playwright.sync_api._generated.Page):
-    page.wait_for_load_state("networkidle", timeout=TIMEOUT)
-
-    page.locator("#qtdDocsPagina").select_option("50")
-
-    with console.status(
-        "Mudando o número de [cyan]Docs/Pág[/] de [cyan]10[/] para [cyan]50[/]"):
-        while True:
-            # TODO check against the remaining number of documents in the last page
-            time.sleep(1)
-
-            n_docs_ult_pag = get_number_of_docs_in_last_page(page)
-            n_docs_pag_atual = len(pegar_documentos(page))
-
-            if n_docs_pag_atual == DOCS_PER_PAGE or n_docs_pag_atual == n_docs_ult_pag:
-                break
-            ...
-        ...
-    ...
-
-
-def get_info_on_tabs(page: playwright.sync_api._generated.Page):
-    aba_ativa = None
-    proxima_aba = None
-    nome_aba_ativa = None
-    nome_proxima_aba = None
-
-    # aba_sumulas = page.locator("id=campoSUMU")
-
-    # IDs
-    # id_aba_sumulas = "campoSUMU"
-    id_aba_acordaos_1 = "campoACOR"
-    id_aba_acordaos_2 = "campoBAEN"
-    id_aba_decisoes_monocraticas = "campoDTXT"
-
-    html_content = page.content()
-    # ic(html_content)
-    soup = BeautifulSoup(html_content, 'lxml')
-
-    nome_aba_acordaos_1 = soup.find("div", { "id": id_aba_acordaos_1 })\
-        .text
-    nome_aba_acordaos_2 = soup.find("div", { "id": id_aba_acordaos_2 })\
-        .text
-    nome_aba_decisoes_monocraticas = soup.find("div", { "id": id_aba_decisoes_monocraticas })\
-        .text
-
-    # Abas (page locators)
-    aba_acordaos_1 = page.locator(f"id={id_aba_acordaos_1}")
-    aba_acordaos_2 = page.locator(f"id={id_aba_acordaos_2}")
-    aba_decisoes_monocraticas = page.locator(f"id={id_aba_decisoes_monocraticas}")
-
-    # Abas (bs4)
-    bs_aba_acordaos_1 = find_1st_el_on_page(page, "div",
-                                            attributes={"id": id_aba_acordaos_1})
-    bs_aba_acordaos_2 = find_1st_el_on_page(page, "div",
-                                            attributes={"id": id_aba_acordaos_2})
-    bs_aba_decisoes_monocraticas = find_1st_el_on_page(page, "div",
-                                            attributes={"id": id_aba_decisoes_monocraticas})
-
-    # CSS classes
-    acordaos_1_classes = bs_aba_acordaos_1.get("class")
-    acordaos_2_classes = bs_aba_acordaos_2.get("class")
-    decisoes_monocraticas_classes = bs_aba_decisoes_monocraticas.get("class")
-
-    if "ativo" in acordaos_1_classes:
-        aba_ativa = aba_acordaos_1
-        nome_aba_ativa = nome_aba_acordaos_1
-
-        proxima_aba = aba_acordaos_2
-        nome_proxima_aba = nome_aba_acordaos_2
-
-    if "ativo" in acordaos_2_classes:
-        aba_ativa = aba_acordaos_2
-        nome_aba_ativa = nome_aba_acordaos_2
-
-        proxima_aba = aba_decisoes_monocraticas
-        nome_proxima_aba = nome_aba_decisoes_monocraticas
-
-    if "ativo" in decisoes_monocraticas_classes:
-        aba_ativa = aba_decisoes_monocraticas
-        nome_aba_ativa = nome_aba_decisoes_monocraticas
-
-        proxima_aba = None
-        nome_proxima_aba = None
-
-    # ic(aba_ativa)
-    # ic(proxima_aba)
-
-    result = {
-        "Current": {
-            "Locator": aba_ativa,
-            "Name": nome_aba_ativa,
-        },
-        "Next": {
-            "Locator": proxima_aba,
-            "Name": nome_proxima_aba,
-        }
-    }
-    return result
-    ...
-
-
-def muda_para_proxima_aba(page: playwright.sync_api._generated.Page):
-    page.wait_for_load_state("networkidle", timeout=TIMEOUT)
-
-    abas = get_info_on_tabs(page)
-    proxima_aba = abas["Next"]["Locator"]
-    nome_proxima_aba = abas["Next"]["Name"]
-
-    print(f"Mudando para próxima aba: [blue]{nome_proxima_aba}[/]")
-    proxima_aba.click()
-
-    wait_for_page_to_change_tab(page, nome_proxima_aba)
-    ...
-
-
-def get_number_of_docs_in_last_page(page: playwright.sync_api._generated.Page):
-    n_de_paginas = get_number_of_pages_to_traverse(page)
-    el_attrs = { "class": "clsNumDocumento" }
-    n_doc_el = find_1st_el_on_page(page, attributes=el_attrs)
-    n_docs = int(last_word_from_text(n_doc_el))
-
-    if n_de_paginas == 1:
-        n_docs_until_last_page = n_docs
-    else:
-        n_docs_until_last_page = (n_de_paginas -1) * DOCS_PER_PAGE
-    n_docs_ultima_pagina = n_docs - n_docs_until_last_page
-
-    return n_docs_ultima_pagina
-
-
-def get_number_of_pages_to_traverse(page: playwright.sync_api._generated.Page):
-    page.wait_for_load_state("networkidle", timeout=TIMEOUT)
-
-    el_attrs = { "class": "clsNumDocumento" }
-    n_doc_el = find_1st_el_on_page(page, attributes=el_attrs)
-    n_docs = int(last_word_from_text(n_doc_el))
-    n_de_paginas = math.ceil(n_docs / DOCS_PER_PAGE)
-
-    return n_de_paginas
-
-
-def run(pw: playwright.sync_api._generated.Playwright):
+def run(pw: playwright.sync_api._generated.Playwright,
+        tab: str
+        ):
     """
     roda o navegador usando Playwright
 
@@ -263,35 +93,67 @@ def run(pw: playwright.sync_api._generated.Playwright):
     context = browser.new_context(viewport={"width": 960, "height": 1080})
     page = context.new_page()
 
-    print(f"Navegando para a URL: {URL}")
-    page.goto(URL)
+    print(f"Navegando para a URL: {C.URL}")
+    page.goto(C.URL)
 
-    preencher_formulario(page,
-        CRITERIO_DE_PESQUISA_CONTEUDO = CRITERIO_DE_PESQUISA_CONTEUDO,
-        DATA_DE_JULGAMENTO_INICIAL_CONTEUDO = DATA_DE_JULGAMENTO_INICIAL_CONTEUDO,
-        DATA_DE_JULGAMENTO_FINAL_CONTEUDO = DATA_DE_JULGAMENTO_FINAL_CONTEUDO,
-    )
+    preencher_formulario(page)
 
-    # Aba Acórdãos 1
-    # muda o número de documentos por página de 10 para 50
-    processa_aba_atual(page)
+    tab_is_acordaos_1 = any(tab in x for x in C.ACCEPTED_VALUES_ACORDAOS_1)
+    tab_is_acordaos_2 = any(tab in x for x in C.ACCEPTED_VALUES_ACORDAOS_2)
+    tab_is_decisoes_m = any(tab in x for x in C.ACCEPTED_VALUES_DECISOES_MONOCRATICAS)
 
-    # Aba Acórdãos 2
-    muda_para_proxima_aba(page)
-    processa_aba_atual(page)
+    if tab_is_acordaos_1:
+        processa_aba_atual(page)
+    elif tab_is_acordaos_2:
+        muda_para_proxima_aba(page)
+        processa_aba_atual(page)
+    elif tab_is_decisoes_m:
+        page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
+        # wait_for_page_to_change_document_number(page)
+        nome_aba_atual = get_nome_aba_atual(page)
+        # nome_aba_atual = get_info_on_tabs(page)["Current"]["Name"]
 
-    # Aba Decisões Monocráticas
-    muda_para_proxima_aba(page)
-    processa_aba_atual(page)
+        while "Decisões Monocráticas" not in nome_aba_atual:
+            nome_aba_atual = get_nome_aba_atual(page)
+            # ic("Decisões Monocráticas" not in nome_aba_atual)
+            # ic(nome_aba_atual)
+            muda_para_proxima_aba(page)
+            page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
+            time.sleep(3)
+        processa_aba_atual(page)
 
-    juntar_dados_de_cada_aba(DT_NOW)
+    # juntar_dados_de_cada_aba(DT_NOW)
 
     browser.close()
 
 
-if __name__ == '__main__':
-    ic.configureOutput(includeContext=True)
+def check_arguments(tab1: str, tab2: str):
+    tab = " ".join([tab1, tab2])
+    # ic(tab)
+    tab_in_accepted_values = any(tab in x for x in C.ACCEPTED_ARGUMENTS)
+    # ic(tab_in_accepted_values)
+    return tab_in_accepted_values, tab
+
+
+#region main
+def main(
+    tab1: str,
+    tab2: str
+):
     print("Início da execução do Script")
 
-    with sync_playwright() as pw:
-        run(pw)
+    tab_in_accepted_values, tab = check_arguments(tab1, tab2)
+    if tab_in_accepted_values:
+        with sync_playwright() as pw:
+            run(pw, tab)
+    else:
+        print(f"[red]X[/] Argumentos [blue]{tab1}[/] e [blue]{tab2}[/] [red]INVALIDOS[/]")
+        print("  usar as seguntes combinações para escolher a aba correta:")
+        print()
+        for value in C.ACCEPTED_ARGUMENTS:
+            print(f"- [green]{value}[/]")
+
+
+if __name__ == '__main__':
+    typer.run(main)
+#endregion main

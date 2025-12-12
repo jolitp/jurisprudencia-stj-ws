@@ -1,49 +1,157 @@
-# from .transform import get_text
+from .config import constants as C
 from .config.parsing import search_config
+from .transform import last_word_from_text
 
 import playwright.sync_api._generated
 # from rich.console import Console
 # from rich.table import Table
 from bs4 import BeautifulSoup
 import bs4
+import math
 from rich import print
-from icecream import ic
+# from icecream import ic
 
 
 #region    get_nome_aba_atual
 def get_nome_aba_atual(page: playwright.sync_api._generated.Page):
     html_content = page.content()
     soup = BeautifulSoup(html_content, 'lxml')
-    aba_name = soup.find("div", { "class": "barraOutrasBases" })\
-        .find("div", { "class": "ativo" })\
-        .text
+    aba_name: str = soup.find("div", { "class": "barraOutrasBases" })\
+                        .find("div", { "class": "ativo" })\
+                        .text
     return aba_name
     ...
 #endregion get_nome_aba_atual
 
 
-# #region
-# def get_aba_atual(page: playwright.sync_api._generated.Page):
-#     # html_content = page.content()
-#     # soup = BeautifulSoup(html_content, 'lxml')
-#     # aba_el = soup.find("div", { "class": "barraOutrasBases" })\
-#         # .find("div", { "class": "ativo" })
-#     # page.find("")
-#     # proxima_aba_selector = "a.iconeProximaPagina"
-#     # page.locator(proxima_pagina_selector).first.click()
-#     aba_el = page.locator(".barraOutrasBases > .ativo")
-#     return aba_el
-#     ...
-# #endregion
+#region
+def get_aba_atual(page: playwright.sync_api._generated.Page):
+    # html_content = page.content()
+    # soup = BeautifulSoup(html_content, 'lxml')
+    # aba_el = soup.find("div", { "class": "barraOutrasBases" })\
+        # .find("div", { "class": "ativo" })
+    # page.find("")
+    # proxima_aba_selector = "a.iconeProximaPagina"
+    # page.locator(proxima_pagina_selector).first.click()
+    aba_el = page.locator(".barraOutrasBases > .ativo")
+    return aba_el
+    ...
+#endregion
+
+
+def get_number_of_docs_in_last_page(
+        page: playwright.sync_api._generated.Page,
+    ):
+    n_de_paginas = get_number_of_pages_to_traverse(page)
+    el_attrs = { "class": "clsNumDocumento" }
+    n_doc_el = find_1st_el_on_page(page, attributes=el_attrs)
+    n_docs = int(last_word_from_text(n_doc_el))
+
+    if n_de_paginas == 1:
+        n_docs_until_last_page = n_docs
+    else:
+        n_docs_until_last_page = (n_de_paginas -1) * C.DOCS_PER_PAGE
+    n_docs_ultima_pagina = n_docs - n_docs_until_last_page
+
+    return n_docs_ultima_pagina
+
+
+def get_number_of_pages_to_traverse(
+        page: playwright.sync_api._generated.Page,
+    ):
+    page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
+
+    el_attrs = { "class": "clsNumDocumento" }
+    n_doc_el = find_1st_el_on_page(page, attributes=el_attrs)
+    n_docs = int(last_word_from_text(n_doc_el))
+    n_de_paginas = math.ceil(n_docs / C.DOCS_PER_PAGE)
+
+    return n_de_paginas
+
+
+def get_info_on_tabs(page: playwright.sync_api._generated.Page):
+    aba_ativa = None
+    proxima_aba = None
+    nome_aba_ativa = None
+    nome_proxima_aba = None
+
+    # aba_sumulas = page.locator("id=campoSUMU")
+
+    # IDs
+    # id_aba_sumulas = "campoSUMU"
+    id_aba_acordaos_1 = "campoACOR"
+    id_aba_acordaos_2 = "campoBAEN"
+    id_aba_decisoes_monocraticas = "campoDTXT"
+
+    html_content = page.content()
+    # ic(html_content)
+    soup = BeautifulSoup(html_content, 'lxml')
+
+    nome_aba_acordaos_1 = soup.find("div", { "id": id_aba_acordaos_1 })\
+        .text
+    nome_aba_acordaos_2 = soup.find("div", { "id": id_aba_acordaos_2 })\
+        .text
+    nome_aba_decisoes_monocraticas = soup.find("div", { "id": id_aba_decisoes_monocraticas })\
+        .text
+
+    # Abas (page locators)
+    aba_acordaos_1 = page.locator(f"id={id_aba_acordaos_1}")
+    aba_acordaos_2 = page.locator(f"id={id_aba_acordaos_2}")
+    aba_decisoes_monocraticas = page.locator(f"id={id_aba_decisoes_monocraticas}")
+
+    # Abas (bs4)
+    bs_aba_acordaos_1 = find_1st_el_on_page(page, "div",
+                                            attributes={"id": id_aba_acordaos_1})
+    bs_aba_acordaos_2 = find_1st_el_on_page(page, "div",
+                                            attributes={"id": id_aba_acordaos_2})
+    bs_aba_decisoes_monocraticas = find_1st_el_on_page(page, "div",
+                                            attributes={"id": id_aba_decisoes_monocraticas})
+    # CSS classes
+    acordaos_1_classes = bs_aba_acordaos_1.get("class")
+    acordaos_2_classes = bs_aba_acordaos_2.get("class")
+    decisoes_monocraticas_classes = bs_aba_decisoes_monocraticas.get("class")
+
+    if "ativo" in acordaos_1_classes:
+        aba_ativa = aba_acordaos_1
+        nome_aba_ativa = nome_aba_acordaos_1
+
+        proxima_aba = aba_acordaos_2
+        nome_proxima_aba = nome_aba_acordaos_2
+
+    if "ativo" in acordaos_2_classes:
+        aba_ativa = aba_acordaos_2
+        nome_aba_ativa = nome_aba_acordaos_2
+
+        proxima_aba = aba_decisoes_monocraticas
+        nome_proxima_aba = nome_aba_decisoes_monocraticas
+
+    if "ativo" in decisoes_monocraticas_classes:
+        aba_ativa = aba_decisoes_monocraticas
+        nome_aba_ativa = nome_aba_decisoes_monocraticas
+
+        proxima_aba = None
+        nome_proxima_aba = None
+
+    # ic(aba_ativa)
+    # ic(proxima_aba)
+
+    result = {
+        "Current": {
+            "Locator": aba_ativa,
+            "Name": nome_aba_ativa,
+        },
+        "Next": {
+            "Locator": proxima_aba,
+            "Name": nome_proxima_aba,
+        }
+    }
+    return result
 
 
 #region    find 1st element on page
 def find_1st_el_on_page(page: playwright.sync_api._generated.Page,
                         element_tag: str = "div",
                         attributes: dict = {}):
-    # return find_all_elements_on_page(page,
-    #                                 element_tag=element_tag,
-    #                                 element_attributes=element_attributes)[0]
     html_content = page.content()
     soup = BeautifulSoup(html_content, 'lxml')
     return soup.find(element_tag, attributes)
@@ -79,9 +187,9 @@ def paginar(page: playwright.sync_api._generated.Page):
 
 #region    preencher formulario
 def preencher_formulario(page: playwright.sync_api._generated.Page,
-                        CRITERIO_DE_PESQUISA_CONTEUDO: str,
-                        DATA_DE_JULGAMENTO_INICIAL_CONTEUDO: str,
-                        DATA_DE_JULGAMENTO_FINAL_CONTEUDO: str
+                        # CRITERIO_DE_PESQUISA_CONTEUDO: str,
+                        # DATA_DE_JULGAMENTO_INICIAL_CONTEUDO: str,
+                        # DATA_DE_JULGAMENTO_FINAL_CONTEUDO: str
                         ):
     """
     Preenche o formulário inicial da pesquisa.
@@ -91,9 +199,9 @@ def preencher_formulario(page: playwright.sync_api._generated.Page,
     """
     # TODO receber dict com termos de pesquisa
     print("Preenchendo [blue]formulário[/] da página de pesquisa com os seguints campos:")
-    print(f"  [blue]conteudo[/]: {CRITERIO_DE_PESQUISA_CONTEUDO}")
-    print(f"  [blue]data de julgamento inicial[/]: {DATA_DE_JULGAMENTO_INICIAL_CONTEUDO}")
-    print(f"  [blue]data de julgamento final[/]: {DATA_DE_JULGAMENTO_FINAL_CONTEUDO}")
+    print(f"  [blue]conteudo[/]: {C.CRITERIO_DE_PESQUISA_CONTEUDO}")
+    print(f"  [blue]data de julgamento inicial[/]: {C.DATA_DE_JULGAMENTO_INICIAL_CONTEUDO}")
+    print(f"  [blue]data de julgamento final[/]: {C.DATA_DE_JULGAMENTO_FINAL_CONTEUDO}")
 
     criterio_de_pesquisa_xpath = search_config["criterio_de_pesquisa_xpath"]
     pesquisa_avancada_xpath = search_config["pesquisa_avancada_xpath"]
@@ -101,10 +209,10 @@ def preencher_formulario(page: playwright.sync_api._generated.Page,
     data_de_julgamento_final_xpath = search_config["data_de_julgamento_final_xpath"]
     botao_buscar_xpath = search_config["botao_buscar_xpath"]
 
-    page.locator(criterio_de_pesquisa_xpath).fill(CRITERIO_DE_PESQUISA_CONTEUDO)
+    page.locator(criterio_de_pesquisa_xpath).fill(C.CRITERIO_DE_PESQUISA_CONTEUDO)
     page.locator(pesquisa_avancada_xpath).click()
-    page.locator(data_de_julgamento_inicial_xpath).fill(DATA_DE_JULGAMENTO_INICIAL_CONTEUDO)
-    page.locator(data_de_julgamento_final_xpath).fill(DATA_DE_JULGAMENTO_FINAL_CONTEUDO)
+    page.locator(data_de_julgamento_inicial_xpath).fill(C.DATA_DE_JULGAMENTO_INICIAL_CONTEUDO)
+    page.locator(data_de_julgamento_final_xpath).fill(C.DATA_DE_JULGAMENTO_FINAL_CONTEUDO)
     page.locator(criterio_de_pesquisa_xpath).click()
     page.locator(botao_buscar_xpath).click()
 #endregion preencher formulario
@@ -176,6 +284,8 @@ def pegar_dados_do_documento(doc: bs4.element.Tag,
         ...
 
     # get pdf link
+    # NOTE em decisoes democraticas abre uma nova janela e o link é este:
+    # processo.stj.jus.br/processo/pesquisa/?num_registro=202502557087
     attrs = { "data-bs-original-title": "Exibir o inteiro teor do acórdão."}
     pdf_dl_btn = doc.find("a", attrs=attrs)
     url_base = "https://processo.stj.jus.br"
