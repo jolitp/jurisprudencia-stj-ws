@@ -54,6 +54,8 @@ def get_number_of_docs_in_last_page(
         n_docs_until_last_page = (n_de_paginas -1) * C.DOCS_PER_PAGE
     n_docs_ultima_pagina = n_docs - n_docs_until_last_page
 
+    print("get_number_of_docs_in_last_page",  locals())
+
     return n_docs_ultima_pagina
 
 
@@ -93,18 +95,22 @@ def get_number_of_pages_to_traverse(
     ic(n_docs)
     n_de_paginas = math.ceil(n_docs / C.DOCS_PER_PAGE)
 
+    print("get_number_of_pages_to_traverse", locals())
+
     return n_de_paginas
 
 
 def get_info_on_tabs(page: playwright.sync_api._generated.Page):
     ic()
 
-    aba_ativa = None
-    proxima_aba = None
+    locator_aba_ativa = None
+    locator_proxima_aba = None
     nome_aba_ativa = None
     nome_proxima_aba = None
 
-    # aba_sumulas = page.locator("id=campoSUMU")
+    is_active_tab_acordaos_1 = False
+    is_active_tab_acordaos_2 = False
+    is_active_tab_decisoes_monocraticas = False
 
     # IDs
     # id_aba_sumulas = "campoSUMU"
@@ -113,7 +119,6 @@ def get_info_on_tabs(page: playwright.sync_api._generated.Page):
     id_aba_decisoes_monocraticas = "campoDTXT"
 
     html_content = page.content()
-    # ic(html_content)
     soup = BeautifulSoup(html_content, 'lxml')
 
     nome_aba_acordaos_1 = soup.find("div", { "id": id_aba_acordaos_1 })\
@@ -124,9 +129,9 @@ def get_info_on_tabs(page: playwright.sync_api._generated.Page):
         .text
 
     # Abas (page locators)
-    aba_acordaos_1 = page.locator(f"id={id_aba_acordaos_1}")
-    aba_acordaos_2 = page.locator(f"id={id_aba_acordaos_2}")
-    aba_decisoes_monocraticas = page.locator(f"id={id_aba_decisoes_monocraticas}")
+    locator_aba_acordaos_1 = page.locator(f"id={id_aba_acordaos_1}")
+    locator_aba_acordaos_2 = page.locator(f"id={id_aba_acordaos_2}")
+    locator_aba_decisoes_monocraticas = page.locator(f"id={id_aba_decisoes_monocraticas}")
 
     # Abas (bs4)
     bs_aba_acordaos_1 = find_1st_el_on_page(page, "div",
@@ -141,39 +146,55 @@ def get_info_on_tabs(page: playwright.sync_api._generated.Page):
     decisoes_monocraticas_classes = bs_aba_decisoes_monocraticas.get("class")
 
     if "ativo" in acordaos_1_classes:
-        aba_ativa = aba_acordaos_1
+        is_active_tab_acordaos_1 = True
+        locator_aba_ativa = locator_aba_acordaos_1
         nome_aba_ativa = nome_aba_acordaos_1
 
-        proxima_aba = aba_acordaos_2
+        locator_proxima_aba = locator_aba_acordaos_2
         nome_proxima_aba = nome_aba_acordaos_2
 
     if "ativo" in acordaos_2_classes:
-        aba_ativa = aba_acordaos_2
+        is_active_tab_acordaos_2 = True
+        locator_aba_ativa = locator_aba_acordaos_2
         nome_aba_ativa = nome_aba_acordaos_2
 
-        proxima_aba = aba_decisoes_monocraticas
+        locator_proxima_aba = locator_aba_decisoes_monocraticas
         nome_proxima_aba = nome_aba_decisoes_monocraticas
 
     if "ativo" in decisoes_monocraticas_classes:
-        aba_ativa = aba_decisoes_monocraticas
+        is_active_tab_decisoes_monocraticas = True
+        locator_aba_ativa = locator_aba_decisoes_monocraticas
         nome_aba_ativa = nome_aba_decisoes_monocraticas
 
-        proxima_aba = None
+        locator_proxima_aba = None
         nome_proxima_aba = None
 
-    # ic(aba_ativa)
-    # ic(proxima_aba)
-
     result = {
+        "acordaos_1": {
+            "locator": locator_aba_acordaos_1,
+            "name": nome_aba_acordaos_1,
+            "is_active": is_active_tab_acordaos_1,
+        },
+        "acordaos_2": {
+            "locator": locator_aba_acordaos_2,
+            "name": nome_aba_acordaos_2,
+            "is_active": is_active_tab_acordaos_2,
+        },
+        "decisoes_monocraticas": {
+            "locator": locator_aba_decisoes_monocraticas,
+            "name": nome_aba_decisoes_monocraticas,
+            "is_active": is_active_tab_decisoes_monocraticas,
+        },
         "Current": {
-            "Locator": aba_ativa,
+            "Locator": locator_aba_ativa,
             "Name": nome_aba_ativa,
         },
         "Next": {
-            "Locator": proxima_aba,
+            "Locator": locator_proxima_aba,
             "Name": nome_proxima_aba,
         }
     }
+    # ic(locals())
     return result
 
 
@@ -309,6 +330,8 @@ def pegar_dados_do_documento(doc: bs4.element.Tag,
         attrs = { "data-bs-original-title": "Exibir o inteiro teor do acórdão."}
         pdf_dl_btn = doc.find("a", attrs=attrs)
         url_base = "https://processo.stj.jus.br"
+
+        # BUG ainda dá eleemento não encontrado em acórãos
         href = url_base + pdf_dl_btn.get("href")\
                                     .replace("javascript:inteiro_teor('", "")\
                                     .replace("')", "")

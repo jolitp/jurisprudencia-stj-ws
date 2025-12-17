@@ -3,6 +3,7 @@ import functions.config.constants as C
 from functions.navigate import  wait_for_page_to_change_document_number\
                             ,   muda_para_proxima_aba\
                             ,   paginar\
+                            ,   check_if_tabs_have_documents
 
 from functions.extract import get_info_on_tabs\
                             , preencher_formulario\
@@ -128,25 +129,38 @@ def run(pw: playwright.sync_api._generated.Playwright,
     tab_is_acordaos_2 = any(tab in x for x in C.ACCEPTED_VALUES_ACORDAOS_2)
     tab_is_decisoes_m = any(tab in x for x in C.ACCEPTED_VALUES_DECISOES_MONOCRATICAS)
 
+    tabs_docs = check_if_tabs_have_documents(page)
     if tab_is_acordaos_1:
-        processa_aba_atual(page)
+        ic("a 1")
+        if tabs_docs["acordaos_1"]:
+            processa_aba_atual(page)
+        else:
+            print("Não há documentos na aba Acórdãos 1")
     elif tab_is_acordaos_2:
-        muda_para_proxima_aba(page)
-        processa_aba_atual(page)
-    elif tab_is_decisoes_m:
-        page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
-        # wait_for_page_to_change_document_number(page)
-        nome_aba_atual = get_nome_aba_atual(page)
-        # nome_aba_atual = get_info_on_tabs(page)["Current"]["Name"]
-
-        while "Decisões Monocráticas" not in nome_aba_atual:
-            nome_aba_atual = get_nome_aba_atual(page)
-            # ic("Decisões Monocráticas" not in nome_aba_atual)
-            # ic(nome_aba_atual)
+        ic("a 2")
+        if tabs_docs["acordaos_2"]:
             muda_para_proxima_aba(page)
+            processa_aba_atual(page)
+        else:
+            print("Não há documentos na aba Acórdãos 2")
+    elif tab_is_decisoes_m:
+        ic("d m")
+        if tabs_docs["decisoes_monocraticas"]:
             page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
-            time.sleep(3)
-        processa_aba_atual(page)
+            # wait_for_page_to_change_document_number(page)
+            nome_aba_atual = get_nome_aba_atual(page)
+            # nome_aba_atual = get_info_on_tabs(page)["Current"]["Name"]
+
+            while "Decisões Monocráticas" not in nome_aba_atual:
+                nome_aba_atual = get_nome_aba_atual(page)
+                # ic("Decisões Monocráticas" not in nome_aba_atual)
+                # ic(nome_aba_atual)
+                muda_para_proxima_aba(page)
+                page.wait_for_load_state("networkidle", timeout=C.TIMEOUT)
+                time.sleep(3)
+            processa_aba_atual(page)
+        else:
+            print("Não há documentos na aba Decisões Monocráticas")
 
     # juntar_dados_de_cada_aba(DT_NOW)
 
